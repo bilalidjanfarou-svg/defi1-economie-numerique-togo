@@ -3,6 +3,7 @@ Dashboard Streamlit — Défi 1 Économie Numérique (Togo AI Lab)
 Diagnostic de l'accès aux télécommunications et services numériques au Togo.
 """
 import sys
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -143,6 +144,11 @@ def kpi(label, value, sub=""):
 def narrative(text):
     st.markdown(f'<div class="narrative">{text}</div>', unsafe_allow_html=True)
 
+def section_header(titre, aide=""):
+    if aide:
+        st.markdown(f"**❓ {titre}**", help=aide)
+    else:
+        st.markdown(f"**{titre}**")
 
 # ============================================================
 # PAGE : VUE D'ENSEMBLE
@@ -181,15 +187,21 @@ elif page == "Infrastructures":
 
     col_a, col_b = st.columns(2)
     with col_a:
-        st.markdown("**Par opérateur**")
+        section_header("Répartition par opérateur", aide="Nombre d'agences physiques par opérateur télécom")
         st.bar_chart(agences_tot["operateur"].value_counts(), color="#22c55e")
         narrative(
             f"Togocom compte {(agences_tot['operateur'] == 'Togocom').sum()} agences "
             f"contre {(agences_tot['operateur'] == 'Moov').sum()} pour Moov — un rapport "
             f"de plus de 2 pour 1."
         )
+        with st.expander("Voir plus — détail par opérateur"):
+            st.dataframe(
+                agences_tot["operateur"].value_counts().rename_axis("opérateur").reset_index(name="nb_agences"),
+                use_container_width=True,
+            )
+
     with col_b:
-        st.markdown("**Par région**")
+        section_header("Répartition par région", aide="Nombre d'agences physiques par région administrative")
         st.bar_chart(agences_tot["region_nom_bdd"].value_counts(), color="#22c55e")
         top_region = agences_tot["region_nom_bdd"].value_counts().idxmax()
         part = agences_tot["region_nom_bdd"].value_counts().max() / len(agences_tot) * 100
@@ -197,6 +209,11 @@ elif page == "Infrastructures":
             f"La région {top_region} concentre à elle seule {part:.0f} % des agences "
             f"du pays, portée par le Grand Lomé."
         )
+        with st.expander("Voir plus — détail par région"):
+            st.dataframe(
+                agences_tot["region_nom_bdd"].value_counts().rename_axis("région").reset_index(name="nb_agences"),
+                use_container_width=True,
+            )
 
     st.write("")
     st.subheader("Concentration au sein des préfectures")
@@ -259,11 +276,39 @@ elif page == "Cartographie":
         )
         return c
 
-    @st.cache_data
+    
+    @st.cache_resource
     def build_map():
+        with open(BASE_DIR / "data" / "raw" / "togo_prefectures.geojson", encoding="utf-8") as f:
+            geo = json.load(f)
+
+        choro_data = pd.read_csv(DATA_PROCESSED / "couverture_pour_choroplethe.csv")
+
         m = folium.Map(location=[8.6, 1.0], zoom_start=7, tiles="CartoDB dark_matter")
+
+        folium.Choropleth(
+            geo_data=geo,
+            name="Agences pour 100k hab.",
+            data=choro_data,
+            columns=["prefecture_geojson", "agences_pour_100k_hab"],
+            key_on="feature.properties.shapeName",
+            fill_color="RdYlGn",
+            fill_opacity=0.8,
+            line_opacity=0.3,
+            line_color="#0e1117",
+            legend_name="Agences pour 100 000 habitants",
+            nan_fill_color="#333333",
+        ).add_to(m)
+
+        # Contours + info-bulle au survol
+        folium.GeoJson(
+            geo,
+            style_function=lambda x: {"fillOpacity": 0, "color": "#0e1117", "weight": 1},
+            tooltip=folium.GeoJsonTooltip(fields=["shapeName"], aliases=["Préfecture :"]),
+        ).add_to(m)
+
+        from folium.plugins import MarkerCluster
         cluster_agences = MarkerCluster(name="Agences").add_to(m)
-        # Agences : gardees en points individuels (seulement 90, pas de souci de perf)
         for _, row in togocom.iterrows():
             folium.CircleMarker(
                 location=[row["lat"], row["lon"]], radius=5,
@@ -276,34 +321,6 @@ elif page == "Cartographie":
                 color="#ff7f0e", fill=True, fill_opacity=0.8,
                 tooltip=f"Moov - {row.get('etab_nom', 'Agence')}",
             ).add_to(cluster_agences)
-        # Mobile money : heatmap en un seul calque (rapide, meme avec 19 788 points)
-        heat_data = mm[["lat", "lon"]].values.tolist()
-        HeatMap(heat_data, radius=8, blur=6, min_opacity=0.3, name="Densite mobile money", show=False).add_to(m)
-
-        # Marqueurs de priorite par prefecture (couleur selon niveau)
-        couleurs_priorite = {
-            "Très prioritaire": "red",
-            "Prioritaire": "orange",
-            "À surveiller": "beige",
-            "Modéré": "lightblue",
-            "Satisfaisant": "green",
-        }
-        cp = compute_priorite()
-        for _, row in cp.iterrows():
-            pts = mm[mm["prefecture_nom_bdd"] == row["prefecture"]]
-            if len(pts) > 0:
-                lat, lon = pts["lat"].mean(), pts["lon"].mean()
-            else:
-                continue
-            folium.Marker(
-                location=[lat, lon],
-                icon=folium.Icon(color=couleurs_priorite[row["priorite"]], icon="info-sign"),
-                popup=(
-                    f"{row['prefecture']} — {row['priorite']}<br>"
-                    f"{row['nb_agences']} agence(s) · {row['population_2022']:,} hab."
-                ),
-                tooltip=row["prefecture"],
-            ).add_to(m)
 
         folium.LayerControl().add_to(m)
         return m
@@ -361,6 +378,20 @@ elif page == "Recommandations":
         f"population importante, zéro agence, coût d'opportunité élevé pour les "
         f"opérateurs qui n'y sont pas encore implantés."
     )
+
+    def section_header(titre, aide=""):
+        col_titre, col_lien = st.columns([5, 1])
+        with col_titre:
+            if aide:
+                st.markdown(f"**❓ {titre}**", help=aide)
+            else:
+                st.markdown(f"**{titre}**")
+        with col_lien:
+            st.markdown(
+            "<div style='text-align:right; color:#22c55e; font-size:12px; "
+            "letter-spacing:1px; padding-top:4px;'>PLUS ↓</div>",
+            unsafe_allow_html=True,
+        )
 st.divider()
 st.caption(
     "⚠️ Limitation méthodologique : aucune donnée ouverte de couverture réseau "
