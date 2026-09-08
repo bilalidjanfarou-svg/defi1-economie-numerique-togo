@@ -93,6 +93,40 @@ def build_map():
 st_folium(build_map(), width=1200, height=600)
 
 st.divider()
+
+# --- Répartition par opérateur et par région ---
+st.subheader("Répartition des agences par opérateur et par région")
+
+col_a, col_b = st.columns(2)
+
+togocom = load_agences_togocom()
+moov = load_agences_moov()
+agences_tot = pd.concat([togocom, moov], ignore_index=True)
+
+with col_a:
+    par_operateur = agences_tot["operateur"].value_counts()
+    st.bar_chart(par_operateur)
+    st.caption("Nombre d'agences par opérateur")
+
+with col_b:
+    par_region = agences_tot["region_nom_bdd"].value_counts()
+    st.bar_chart(par_region)
+    st.caption("Nombre d'agences par région")
+
+st.divider()
+
+# --- Classement complet des 39 préfectures ---
+st.subheader("Classement complet des 39 préfectures")
+st.dataframe(
+    couverture.sort_values("agences_pour_100k_hab")[
+        ["prefecture", "region", "population_2022", "nb_agences",
+         "agences_pour_100k_hab", "nb_points_mobile_money",
+         "mobile_money_pour_100k_hab"]
+    ],
+    use_container_width=True,
+    height=400,
+)
+st.divider()
 st.caption(
     "⚠️ Limitation méthodologique : aucune donnée ouverte de couverture réseau "
     "cellulaire (2G/3G/4G) n'existe pour le Togo. La présence des agences "
