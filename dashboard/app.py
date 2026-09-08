@@ -20,22 +20,34 @@ st.set_page_config(page_title="Défi 1 - Économie Numérique Togo", layout="wid
 st.title("📡 Diagnostic connectivité et services numériques — Togo")
 st.caption("Togo AI Lab · Défi 1 Économie Numérique")
 
-# --- Chargement des données ---
+# --- Chargement des données (doit venir AVANT le filtre qui l'utilise) ---
 couverture = pd.read_csv(DATA_PROCESSED / "couverture_par_prefecture.csv")
 
-# --- KPIs principaux ---
+# --- Filtre par région (barre latérale) ---
+regions_dispo = ["Toutes"] + sorted(couverture["region"].unique().tolist())
+region_choisie = st.sidebar.selectbox("Filtrer par région", regions_dispo)
+
+if region_choisie != "Toutes":
+    couverture_filtree = couverture[couverture["region"] == region_choisie]
+else:
+    couverture_filtree = couverture
+
+# --- KPIs principaux (utilisent la version filtrée) ---
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Préfectures sans agence", f"{(couverture['nb_agences'] == 0).sum()} / 39")
-col2.metric("Total agences (Togocom + Moov)", int(couverture["nb_agences"].sum()))
-col3.metric("Total points mobile money", int(couverture["nb_points_mobile_money"].sum()))
-col4.metric("Cantons sans agence", "326 / 372")
+col1.metric(
+    "Préfectures sans agence",
+    f"{(couverture_filtree['nb_agences'] == 0).sum()} / {len(couverture_filtree)}",
+)
+col2.metric("Total agences (Togocom + Moov)", int(couverture_filtree["nb_agences"].sum()))
+col3.metric("Total points mobile money", int(couverture_filtree["nb_points_mobile_money"].sum()))
+col4.metric("Cantons sans agence (national)", "326 / 372")
 
 st.divider()
 
-# --- Tableau préfectures les moins équipées ---
+# --- Tableau préfectures les moins équipées (filtré) ---
 st.subheader("Préfectures les moins bien équipées (agences pour 100 000 hab.)")
 st.dataframe(
-    couverture.sort_values("agences_pour_100k_hab")[
+    couverture_filtree.sort_values("agences_pour_100k_hab")[
         ["prefecture", "region", "population_2022", "nb_agences",
          "agences_pour_100k_hab", "nb_points_mobile_money"]
     ].head(15),
@@ -44,8 +56,9 @@ st.dataframe(
 
 st.divider()
 
-# --- Carte ---
+# --- Carte (toujours complète, non filtrée par région) ---
 st.subheader("Carte des infrastructures et zones blanches")
+st.caption("La carte affiche toujours l'ensemble du pays, indépendamment du filtre région ci-dessus.")
 
 @st.cache_data
 def build_map():
@@ -94,7 +107,7 @@ st_folium(build_map(), width=1200, height=600)
 
 st.divider()
 
-# --- Répartition par opérateur et par région ---
+# --- Répartition par opérateur et par région (national, non filtré) ---
 st.subheader("Répartition des agences par opérateur et par région")
 
 col_a, col_b = st.columns(2)
@@ -115,10 +128,10 @@ with col_b:
 
 st.divider()
 
-# --- Classement complet des 39 préfectures ---
-st.subheader("Classement complet des 39 préfectures")
+# --- Classement complet des préfectures (filtré) ---
+st.subheader(f"Classement complet des préfectures ({len(couverture_filtree)})")
 st.dataframe(
-    couverture.sort_values("agences_pour_100k_hab")[
+    couverture_filtree.sort_values("agences_pour_100k_hab")[
         ["prefecture", "region", "population_2022", "nb_agences",
          "agences_pour_100k_hab", "nb_points_mobile_money",
          "mobile_money_pour_100k_hab"]
@@ -126,6 +139,7 @@ st.dataframe(
     use_container_width=True,
     height=400,
 )
+
 st.divider()
 st.caption(
     "⚠️ Limitation méthodologique : aucune donnée ouverte de couverture réseau "
