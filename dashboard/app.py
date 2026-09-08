@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 import folium
-from streamlit_folium import st_folium
+import streamlit.components.v1 as components
 from folium.plugins import HeatMap, MarkerCluster
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -284,9 +284,14 @@ elif page == "Cartographie":
 
         choro_data = pd.read_csv(DATA_PROCESSED / "couverture_pour_choroplethe.csv")
 
-        m = folium.Map(location=[8.6, 1.0], zoom_start=7, tiles="CartoDB dark_matter")
+        m = folium.Map(
+            location=[8.6, 1.0],
+            zoom_start=7,
+            tiles="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+            attr="Esri, HERE, Garmin, FAO, NOAA, USGS",
+        )
 
-        folium.Choropleth(
+        choropleth = folium.Choropleth(
             geo_data=geo,
             name="Agences pour 100k hab.",
             data=choro_data,
@@ -300,12 +305,10 @@ elif page == "Cartographie":
             nan_fill_color="#333333",
         ).add_to(m)
 
-        # Contours + info-bulle au survol
-        folium.GeoJson(
-            geo,
-            style_function=lambda x: {"fillOpacity": 0, "color": "#0e1117", "weight": 1},
-            tooltip=folium.GeoJsonTooltip(fields=["shapeName"], aliases=["Préfecture :"]),
-        ).add_to(m)
+        # Tooltip ajoute directement sur le calque du choroplethe (pas de doublon)
+        choropleth.geojson.add_child(
+            folium.GeoJsonTooltip(fields=["shapeName"], aliases=["Préfecture :"])
+        )
 
         from folium.plugins import MarkerCluster
         cluster_agences = MarkerCluster(name="Agences").add_to(m)
@@ -325,7 +328,12 @@ elif page == "Cartographie":
         folium.LayerControl().add_to(m)
         return m
 
-    st_folium(build_map(), width=1200, height=600)
+    if "carte_nonce" not in st.session_state:
+        st.session_state["carte_nonce"] = 0
+    st.session_state["carte_nonce"] += 1
+
+    carte_html = build_map().get_root().render()
+    components.html(carte_html, width=1200, height=600)
 
     st.write("")
     st.markdown("**Légende priorité** (basée sur le nombre d'agences pour 100 000 hab.)")
