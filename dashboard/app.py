@@ -232,6 +232,13 @@ elif page == "Couverture par préfecture":
         height=450,
     )
 
+    mediane = couverture["agences_pour_100k_hab"].median()
+    sous_mediane = (data["agences_pour_100k_hab"] < mediane).sum()
+    narrative(
+        f"{sous_mediane} préfecture(s) sur {len(data)} affichées sont sous la médiane "
+        f"nationale de {mediane:.2f} agence(s) pour 100 000 habitants."
+    )
+
 # ============================================================
 # PAGE : CARTOGRAPHIE
 # ============================================================
@@ -326,23 +333,34 @@ elif page == "Recommandations":
         (couverture["nb_agences"] == 0) & (couverture["population_2022"] > 150_000)
     ].sort_values("population_2022", ascending=False)
 
+    st.markdown("**1 · Priorité absolue**")
     if len(zones_critiques) > 0:
         noms = ", ".join(zones_critiques["prefecture"].tolist())
-        st.error(f"**Priorité absolue** — aucune présence télécom : {noms}")
+        st.error(f"Aucune présence télécom (ni agence ni mobile money) : {noms}")
+    else:
+        st.success("Aucune préfecture n'est totalement dépourvue de présence télécom.")
 
+    st.markdown("**2 · Fort potentiel commercial**")
     if len(zones_grosse_pop) > 0:
         noms = ", ".join(
             f"{r['prefecture']} ({r['population_2022']:,} hab.)"
             for _, r in zones_grosse_pop.iterrows()
         )
-        st.warning(f"**Fort potentiel commercial** sans agence : {noms}")
+        st.warning(f"Préfectures peuplées (>150 000 hab.) sans agence : {noms}")
 
+    st.markdown("**3 · Recommandation méthodologique**")
     st.info(
-        "**Recommandation méthodologique** — Le Togo ne dispose d'aucune donnée "
-        "ouverte de couverture réseau cellulaire. La publication de ces données "
-        "par l'ARCEP permettrait un diagnostic plus complet."
+        "Le Togo ne dispose d'aucune donnée ouverte de couverture réseau cellulaire "
+        "(2G/3G/4G). La publication de ces données par l'ARCEP, à l'image de son "
+        "homologue français, permettrait un diagnostic plus complet à l'avenir."
     )
 
+    narrative(
+        f"En croisant infrastructure et démographie, {len(zones_grosse_pop)} "
+        f"préfecture(s) representent une priorité d'expansion à fort impact : "
+        f"population importante, zéro agence, coût d'opportunité élevé pour les "
+        f"opérateurs qui n'y sont pas encore implantés."
+    )
 st.divider()
 st.caption(
     "⚠️ Limitation méthodologique : aucune donnée ouverte de couverture réseau "
