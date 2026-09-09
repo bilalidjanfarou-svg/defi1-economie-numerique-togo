@@ -96,7 +96,11 @@ agences_tot = pd.concat([togocom, moov], ignore_index=True)
 mm = load_mobile_money()
 
 # --- Barre latérale : identité + navigation par axes ---
-st.sidebar.markdown("### 📡 Atlas Connectivité")
+col_logo_sb, col_titre_sb = st.sidebar.columns([1, 3])
+with col_logo_sb:
+    st.image(str(BASE_DIR / "dashboard" / "assets" / "logo_connectivite.png"), width=45)
+with col_titre_sb:
+    st.markdown("### Atlas Connectivité")
 st.sidebar.caption("TOGO · DÉFI 1 ÉCONOMIE NUMÉRIQUE")
 st.sidebar.divider()
 
@@ -164,11 +168,8 @@ with col_logo:
             "</div>",
             unsafe_allow_html=True,
         )
-    with col_embleme:
-        st.markdown(
-            "<div style='text-align:right; font-size:40px; padding-top:10px;'>🇹🇬</div>",
-            unsafe_allow_html=True,
-        )
+        with col_embleme:
+            st.image(str(BASE_DIR / "dashboard" / "assets" / "logo_togo.jpg"), width=70)
 
 st.divider()
 
@@ -379,12 +380,12 @@ elif page == "Cartographie":
         folium.LayerControl().add_to(m)
         return m
 
-        if st.button("🗺️ Afficher la carte", type="primary"):
+    if st.button("🗺️ Afficher la carte", type="primary"):
+        with st.spinner("Génération de la carte..."):
             carte_html = build_map().get_root().render()
-            components.html(carte_html, width=1200, height=600)
-        else:
-            st.info("Clique sur le bouton ci-dessus pour charger la carte.")
-
+        components.html(carte_html, width=1200, height=600)
+    else:
+        st.info("Clique sur le bouton ci-dessus pour charger la carte.")
     st.write("")
     st.markdown("**Légende priorité** (basée sur le nombre d'agences pour 100 000 hab.)")
     leg1, leg2, leg3, leg4, leg5 = st.columns(5)
@@ -393,7 +394,6 @@ elif page == "Cartographie":
     leg3.markdown("🟡 À surveiller")
     leg4.markdown("🔵 Modéré")
     leg5.markdown("🟢 Satisfaisant")
-
 # ============================================================
 # PAGE : RECOMMANDATIONS
 # ============================================================
