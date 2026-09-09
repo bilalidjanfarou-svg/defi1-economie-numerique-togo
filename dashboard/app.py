@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-import folium
 import streamlit.components.v1 as components
-from folium.plugins import HeatMap, MarkerCluster
+import folium
+from folium.plugins import MarkerCluster
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / "src"))
@@ -70,10 +70,18 @@ h1, h2, h3 { letter-spacing: -0.5px; }
 [data-testid="stSidebar"] label {
     font-size: 14px;
 }
-
-/* Boutons radio de la sidebar : espacement plus aere */
 [data-testid="stSidebar"] .stRadio > div {
     gap: 4px;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"] {
+    background-color: #12161c;
+    border: 1px solid #262b33 !important;
+    border-radius: 10px !important;
+    padding: 4px 4px;
+}
+[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    border-color: #363c46 !important;
 }
 
 hr { border-color: #2a2f38 !important; }
@@ -92,7 +100,11 @@ st.sidebar.markdown("### 📡 Atlas Connectivité")
 st.sidebar.caption("TOGO · DÉFI 1 ÉCONOMIE NUMÉRIQUE")
 st.sidebar.divider()
 
-st.sidebar.markdown("**SYNTHÈSE**")
+st.sidebar.markdown(
+    '<span class="axe-tag" style="font-size:11px;">NAVIGATION</span>',
+    unsafe_allow_html=True,
+)
+
 page_labels = {
     "📊 Vue d'ensemble": "Vue d'ensemble",
     "📡 Infrastructures": "Infrastructures",
@@ -101,28 +113,62 @@ page_labels = {
     "🎯 Recommandations": "Recommandations",
 }
 choix_affiche = st.sidebar.radio(
-    label="navigation",
-    options=list(page_labels.keys()),
+    "navigation",
+    list(page_labels.keys()),
     label_visibility="collapsed",
 )
 page = page_labels[choix_affiche]
 
 st.sidebar.divider()
-st.sidebar.caption(f"{len(couverture)} préfectures · 5 régions")
-st.sidebar.caption("Recensement 2022 · geodata.gouv.tg")
+st.sidebar.caption(f"📌 {len(couverture)} préfectures · 5 régions")
+st.sidebar.caption(
+    f"📶 {int(couverture['nb_agences'].sum())} agences · "
+    f"{int(couverture['nb_points_mobile_money'].sum()):,}".replace(",", " ")
+    + " points mobile money"
+)
+st.sidebar.caption("🗓️ Recensement 2022")
+st.sidebar.caption("🔗 geodata.gouv.tg")
 
 # --- En-tête institutionnel (présent sur toutes les pages) ---
-col_titre, col_logo = st.columns([4, 1])
+col_titre, col_logo = st.columns([4, 1.5])
+
 with col_titre:
-    st.markdown('<span class="axe-tag">SYNTHÈSE NATIONALE</span>', unsafe_allow_html=True)
-    st.title("Diagnostic connectivité et services numériques")
-with col_logo:
     st.markdown(
-        "<div style='text-align:right; font-size:12px; color:#8b949e; padding-top:20px;'>"
-        "République togolaise<br>Togo AI Lab — Défi Économie Numérique"
+        "<div style='color:#22c55e; font-size:12px; letter-spacing:3px; "
+        "font-weight:600; margin-bottom:6px;'>SYNTHÈSE NATIONALE</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<div style='font-size:38px; font-weight:800; color:#f0f0f0; "
+        "line-height:1.15; margin-bottom:10px;'>"
+        "Diagnostic connectivité et<br>services numériques</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<div style='color:#8b949e; font-size:15px;'>"
+        "Où en est le Togo sur l'accès aux télécommunications, et quelles "
+        "préfectures restent en marge de la connectivité ?"
         "</div>",
         unsafe_allow_html=True,
     )
+
+with col_logo:
+    col_texte, col_embleme = st.columns([3, 1])
+    with col_texte:
+        st.markdown(
+            "<div style='text-align:right; padding-top:18px;'>"
+            "<div style='font-size:13px; font-weight:700; color:#e6e6e6;'>"
+            "République togolaise · Togo AI Lab — MESPTN</div>"
+            "<div style='font-size:11px; letter-spacing:2px; color:#8b949e; "
+            "margin-top:4px;'>DATA CHALLENGE ÉCONOMIE NUMÉRIQUE</div>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    with col_embleme:
+        st.markdown(
+            "<div style='text-align:right; font-size:40px; padding-top:10px;'>🇹🇬</div>",
+            unsafe_allow_html=True,
+        )
 
 st.divider()
 
@@ -130,13 +176,22 @@ st.divider()
 def kpi(label, value, sub=""):
     with st.container(border=True):
         st.markdown(
-            f'<span class="kpi-label">{label}</span>',
+            f'<div style="padding:6px 10px 2px 10px;">'
+            f'<span class="kpi-label">{label}</span>'
+            f'</div>',
             unsafe_allow_html=True,
         )
-        st.markdown(f"### {value}")
+        st.markdown(
+            f'<div style="padding:0 10px; font-size:28px; font-weight:800; '
+            f'color:#f0f0f0;">{value}</div>',
+            unsafe_allow_html=True,
+        )
         if sub:
             st.markdown(
-                f'<span class="kpi-sub">{sub}</span>',
+                f'<div style="padding:2px 10px 8px 10px;">'
+                f'<span style="color:#22c55e;">●</span> '
+                f'<span class="kpi-sub">{sub}</span>'
+                f'</div>',
                 unsafe_allow_html=True,
             )
 
@@ -144,11 +199,13 @@ def kpi(label, value, sub=""):
 def narrative(text):
     st.markdown(f'<div class="narrative">{text}</div>', unsafe_allow_html=True)
 
+
 def section_header(titre, aide=""):
     if aide:
         st.markdown(f"**❓ {titre}**", help=aide)
     else:
         st.markdown(f"**{titre}**")
+
 
 # ============================================================
 # PAGE : VUE D'ENSEMBLE
@@ -263,11 +320,8 @@ elif page == "Cartographie":
     st.markdown('<span class="axe-tag">AXE · CARTOGRAPHIE & ACTION</span>', unsafe_allow_html=True)
     st.subheader("Où investir en premier")
 
-        
     @st.cache_data
     def compute_priorite():
-        """Score de priorité 1 (satisfaisant) à 5 (très prioritaire),
-        base sur agences_pour_100k_hab (moins d'agences = plus prioritaire)."""
         c = couverture.copy()
         c["priorite"] = pd.qcut(
             c["agences_pour_100k_hab"].rank(method="first"),
@@ -276,7 +330,6 @@ elif page == "Cartographie":
         )
         return c
 
-    
     @st.cache_resource
     def build_map():
         with open(BASE_DIR / "data" / "raw" / "togo_prefectures.geojson", encoding="utf-8") as f:
@@ -305,12 +358,10 @@ elif page == "Cartographie":
             nan_fill_color="#333333",
         ).add_to(m)
 
-        # Tooltip ajoute directement sur le calque du choroplethe (pas de doublon)
         choropleth.geojson.add_child(
             folium.GeoJsonTooltip(fields=["shapeName"], aliases=["Préfecture :"])
         )
 
-        from folium.plugins import MarkerCluster
         cluster_agences = MarkerCluster(name="Agences").add_to(m)
         for _, row in togocom.iterrows():
             folium.CircleMarker(
@@ -328,12 +379,11 @@ elif page == "Cartographie":
         folium.LayerControl().add_to(m)
         return m
 
-    if "carte_nonce" not in st.session_state:
-        st.session_state["carte_nonce"] = 0
-    st.session_state["carte_nonce"] += 1
-
-    carte_html = build_map().get_root().render()
-    components.html(carte_html, width=1200, height=600)
+        if st.button("🗺️ Afficher la carte", type="primary"):
+            carte_html = build_map().get_root().render()
+            components.html(carte_html, width=1200, height=600)
+        else:
+            st.info("Clique sur le bouton ci-dessus pour charger la carte.")
 
     st.write("")
     st.markdown("**Légende priorité** (basée sur le nombre d'agences pour 100 000 hab.)")
@@ -387,19 +437,6 @@ elif page == "Recommandations":
         f"opérateurs qui n'y sont pas encore implantés."
     )
 
-    def section_header(titre, aide=""):
-        col_titre, col_lien = st.columns([5, 1])
-        with col_titre:
-            if aide:
-                st.markdown(f"**❓ {titre}**", help=aide)
-            else:
-                st.markdown(f"**{titre}**")
-        with col_lien:
-            st.markdown(
-            "<div style='text-align:right; color:#22c55e; font-size:12px; "
-            "letter-spacing:1px; padding-top:4px;'>PLUS ↓</div>",
-            unsafe_allow_html=True,
-        )
 st.divider()
 st.caption(
     "⚠️ Limitation méthodologique : aucune donnée ouverte de couverture réseau "
