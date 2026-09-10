@@ -14,7 +14,7 @@ from folium.plugins import MarkerCluster
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / "src"))
-from load_data import load_agences_togocom, load_agences_moov, load_mobile_money  # noqa: E402
+from load_data import load_agences_togocom, load_agences_moov, load_mobile_money, load_datacenters  # noqa: E402
 
 DATA_PROCESSED = BASE_DIR / "data" / "processed"
 
@@ -91,26 +91,28 @@ h1, h2, h3 { letter-spacing: -0.5px; }
 .stButton > button {
     background-color: #1c2128 !important;
     color: #e6e6e6 !important;
-    border: 1px solid #2a2f38 !important;
-    border-radius: 8px !important;
-    padding: 8px 16px !important;
+    border: none !important;
+    border-radius: 24px !important;
+    padding: 12px 24px !important;
     font-weight: 600 !important;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
-    transition: all 0.15s ease !important;
+    font-size: 14px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+    transition: all 0.2s ease !important;
 }
 .stButton > button:hover {
-    border-color: #22c55e !important;
-    color: #22c55e !important;
-    box-shadow: 0 2px 10px rgba(34,197,94,0.2) !important;
+    background-color: #262b33 !important;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4) !important;
+    transform: translateY(-1px);
 }
 .stButton > button[kind="primary"] {
     background-color: #22c55e !important;
     color: #0e1117 !important;
-    border: none !important;
+    box-shadow: 0 4px 14px rgba(34,197,94,0.35) !important;
 }
 .stButton > button[kind="primary"]:hover {
     background-color: #16a34a !important;
-    color: #ffffff !important;
+    box-shadow: 0 6px 18px rgba(34,197,94,0.45) !important;
+    transform: translateY(-1px);
 }
 
 hr { border-color: #2a2f38 !important; }
@@ -147,7 +149,7 @@ togocom = load_agences_togocom()
 moov = load_agences_moov()
 agences_tot = pd.concat([togocom, moov], ignore_index=True)
 mm = load_mobile_money()
-
+datacenters = load_datacenters()
 # --- Barre latérale : identité + navigation par axes ---
 col_logo_sb, col_titre_sb = st.sidebar.columns([1, 3])
 with col_logo_sb:
@@ -438,6 +440,14 @@ elif page == "Cartographie":
             folium.GeoJsonTooltip(fields=["shapeName"], aliases=["Préfecture :"])
         )
 
+        for _, row in datacenters.iterrows():
+            folium.Marker(
+                location=[row["lat"], row["lon"]],
+                icon=folium.Icon(color="purple", icon="server", prefix="fa"),
+                tooltip=f"Datacenter — {row.get('etab_nom', 'Centre de données')}",
+                popup=f"{row.get('etab_nom', 'Centre de données')}<br>{row.get('etab_adresse', '')}",
+            ).add_to(m)
+
         cluster_agences = MarkerCluster(name="Agences").add_to(m)
         for _, row in togocom.iterrows():
             folium.CircleMarker(
@@ -462,6 +472,7 @@ elif page == "Cartographie":
     else:
         st.info("Clique sur le bouton ci-dessus pour charger la carte.")
     st.write("")
+    st.caption("🟣 Marqueurs violets = centres de données (3 sites recensés)")
     st.markdown("**Légende priorité** (basée sur le nombre d'agences pour 100 000 hab.)")
     leg1, leg2, leg3, leg4, leg5 = st.columns(5)
     leg1.markdown("🔴 Très prioritaire")
