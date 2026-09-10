@@ -27,6 +27,7 @@ st.set_page_config(
 # --- CSS custom : look "atlas institutionnel" sombre / monospace ---
 st.markdown("""
 <style>
+
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 html, body, [class*="css"], .stMarkdown, .stDataFrame, [data-testid="stSidebar"] {
@@ -76,17 +77,69 @@ h1, h2, h3 { letter-spacing: -0.5px; }
 
 [data-testid="stVerticalBlockBorderWrapper"] {
     background-color: #12161c;
-    border: 1px solid #262b33 !important;
+    border: 1px solid #2a2f38 !important;
     border-radius: 10px !important;
     padding: 4px 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    transition: border-color 0.15s ease;
 }
 [data-testid="stVerticalBlockBorderWrapper"]:hover {
-    border-color: #363c46 !important;
+    border-color: #22c55e !important;
+    box-shadow: 0 2px 12px rgba(34,197,94,0.15);
+}
+
+.stButton > button {
+    background-color: #1c2128 !important;
+    color: #e6e6e6 !important;
+    border: 1px solid #2a2f38 !important;
+    border-radius: 8px !important;
+    padding: 8px 16px !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+    transition: all 0.15s ease !important;
+}
+.stButton > button:hover {
+    border-color: #22c55e !important;
+    color: #22c55e !important;
+    box-shadow: 0 2px 10px rgba(34,197,94,0.2) !important;
+}
+.stButton > button[kind="primary"] {
+    background-color: #22c55e !important;
+    color: #0e1117 !important;
+    border: none !important;
+}
+.stButton > button[kind="primary"]:hover {
+    background-color: #16a34a !important;
+    color: #ffffff !important;
 }
 
 hr { border-color: #2a2f38 !important; }
 </style>
 """, unsafe_allow_html=True)
+
+if "mode_clair" not in st.session_state:
+    st.session_state.mode_clair = False
+
+if st.session_state.mode_clair:
+    st.markdown("""
+    <style>
+    [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        background-color: #f5f5f5 !important;
+        color: #1a1a1a !important;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #ffffff !important;
+        border-right: 1px solid #d0d0d0;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #ffffff !important;
+        border-color: #d0d0d0 !important;
+    }
+    h1, h2, h3, p, span, div, label { color: #1a1a1a !important; }
+    .kpi-label { color: #6b7280 !important; }
+    .narrative { background-color: #f0f0f0 !important; color: #333 !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- Données (chargées une fois, avant tout le reste) ---
 couverture = pd.read_csv(DATA_PROCESSED / "couverture_par_prefecture.csv")
@@ -102,12 +155,39 @@ with col_logo_sb:
 with col_titre_sb:
     st.markdown("### Atlas Connectivité")
 st.sidebar.caption("TOGO · DÉFI 1 ÉCONOMIE NUMÉRIQUE")
+
+st.sidebar.divider()
+if st.sidebar.button("☀️ Mode clair" if not st.session_state.mode_clair else "🌙 Mode sombre"):
+    st.session_state.mode_clair = not st.session_state.mode_clair
+    st.rerun()
 st.sidebar.divider()
 
 st.sidebar.markdown(
     '<span class="axe-tag" style="font-size:11px;">NAVIGATION</span>',
     unsafe_allow_html=True,
 )
+
+page_labels_list = [
+    "📊 Vue d'ensemble",
+    "📡 Infrastructures",
+    "🗺️ Couverture par préfecture",
+    "📍 Cartographie",
+    "🎯 Recommandations",
+]
+
+if "page_active" not in st.session_state:
+    st.session_state.page_active = page_labels_list[0]
+
+for label in page_labels_list:
+    est_actif = st.session_state.page_active == label
+    if st.sidebar.button(
+        label,
+        key=f"nav_{label}",
+        type="primary" if est_actif else "secondary",
+        use_container_width=True,
+    ):
+        st.session_state.page_active = label
+        st.rerun()
 
 page_labels = {
     "📊 Vue d'ensemble": "Vue d'ensemble",
@@ -116,12 +196,7 @@ page_labels = {
     "📍 Cartographie": "Cartographie",
     "🎯 Recommandations": "Recommandations",
 }
-choix_affiche = st.sidebar.radio(
-    "navigation",
-    list(page_labels.keys()),
-    label_visibility="collapsed",
-)
-page = page_labels[choix_affiche]
+page = page_labels[st.session_state.page_active]
 
 st.sidebar.divider()
 st.sidebar.caption(f"📌 {len(couverture)} préfectures · 5 régions")
@@ -162,14 +237,14 @@ with col_logo:
         st.markdown(
             "<div style='text-align:right; padding-top:18px;'>"
             "<div style='font-size:13px; font-weight:700; color:#e6e6e6;'>"
-            "République togolaise · Togo AI Lab — MESPTN</div>"
+            "République togolaise · Togo AI Lab </div>"
             "<div style='font-size:11px; letter-spacing:2px; color:#8b949e; "
             "margin-top:4px;'>DATA CHALLENGE ÉCONOMIE NUMÉRIQUE</div>"
             "</div>",
             unsafe_allow_html=True,
         )
         with col_embleme:
-            st.image(str(BASE_DIR / "dashboard" / "assets" / "logo_togo.jpg"), width=70)
+            st.image(str(BASE_DIR / "dashboard" / "assets" / "image.png"), width=70)
 
 st.divider()
 
