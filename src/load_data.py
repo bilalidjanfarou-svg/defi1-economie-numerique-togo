@@ -20,6 +20,10 @@ def _extract_coords(df: pd.DataFrame) -> pd.DataFrame:
 
 def load_mobile_money() -> pd.DataFrame:
     df = pd.read_csv(DATA_RAW / "agents_mobile_money.csv")
+    # Correction d'une faute de frappe a la source : "Tandjoaré" -> "Tandjouaré"
+    df["prefecture_nom_bdd"] = df["prefecture_nom_bdd"].replace(
+        {"Tandjoaré": "Tandjouaré"}
+    )
     return _extract_coords(df)
 
 
