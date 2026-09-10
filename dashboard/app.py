@@ -410,60 +410,107 @@ elif page == "Cartographie":
 
     @st.cache_resource
     def build_map():
-        with open(BASE_DIR / "data" / "raw" / "togo_prefectures.geojson", encoding="utf-8") as f:
-            geo = json.load(f)
+            with open(BASE_DIR / "data" / "raw" / "togo_prefectures.geojson", encoding="utf-8") as f:
+                geo = json.load(f)
 
-        choro_data = pd.read_csv(DATA_PROCESSED / "couverture_pour_choroplethe.csv")
+            choro_data = pd.read_csv(DATA_PROCESSED / "couverture_pour_choroplethe.csv")
+            cp  = compute_priorite()
 
-        m = folium.Map(
-            location=[8.6, 1.0],
-            zoom_start=7,
-            tiles="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
-            attr="Esri, HERE, Garmin, FAO, NOAA, USGS",
-        )
+            m = folium.Map(
+                location=[8.6, 1.0],
+                zoom_start=7,
+                tiles="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+                attr="Esri, HERE, Garmin, FAO, NOAA, USGS",
+            )
 
-        choropleth = folium.Choropleth(
-            geo_data=geo,
-            name="Agences pour 100k hab.",
-            data=choro_data,
-            columns=["prefecture_geojson", "agences_pour_100k_hab"],
-            key_on="feature.properties.shapeName",
-            fill_color="RdYlGn",
-            fill_opacity=0.8,
-            line_opacity=0.3,
-            line_color="#0e1117",
-            legend_name="Agences pour 100 000 habitants",
-            nan_fill_color="#333333",
-        ).add_to(m)
+            # Choropleth leger, seul calque actif par defaut
+            choropleth = folium.Choropleth(
+                geo_data=geo,
+                name="Agences pour 100k hab.",
+                data=choro_data,
+                columns=["prefecture_geojson", "agences_pour_100k_hab"],
+                key_on="feature.properties.shapeName",
+                fill_color="RdYlGn",
+                fill_opacity=0.35,
+                line_opacity=0.4,
+                line_color="#0e1117",
+                legend_name="Agences pour 100 000 habitants",
+                nan_fill_color="#333333",
+            ).add_to(m)
+            choropleth.geojson.add_child(
+                folium.GeoJsonTooltip(fields=["shapeName"], aliases=["Préfecture :"])
+            )
 
-        choropleth.geojson.add_child(
-            folium.GeoJsonTooltip(fields=["shapeName"], aliases=["Préfecture :"])
-        )
+            # Losanges de priorite (un par prefecture) - calque principal, propre
+            couleurs_hex = {
+                "Très prioritaire": "#ef4444",
+                "Prioritaire": "#f97316",
+                "À surveiller": "#eab308",
+                "Modéré": "#3b82f6",
+                "Satisfaisant": "#22c55e",
+            }
+            for _, row in cp.iterrows():
+                pts = mm[mm["prefecture_nom_bdd"] == row["prefecture"]]
+                if len(pts) == 0:
+                    continue
+                lat, lon = pts["lat"].mean(), pts["lon"].mean()
+                couleur = couleurs_hex[row["priorite"]]
+                icone_losange = f"""
+                    <div style="
+                        width: 16px; height: 16px;
+                        background: {couleur};
+                        border: 2px solid #0e1117;
+                        transform: rotate(45deg);
+                        box-shadow: 0 0 4px rgba(0,0,0,0.5);
+                    "></div>
+                """
+                folium.Marker(
+                    location=[lat, lon],
+                    icon=folium.DivIcon(html=icone_losange, icon_size=(16, 16), icon_anchor=(8, 8)),
+                    tooltip=(
+                        f"{row['prefecture']} — {row['priorite']}<br>"
+                        f"{row['nb_agences']} agence(s) · {row['population_2022']:,} hab."
+                    ),
+                ).add_to(m)
 
-        for _, row in datacenters.iterrows():
-            folium.Marker(
-                location=[row["lat"], row["lon"]],
-                icon=folium.Icon(color="purple", icon="server", prefix="fa"),
-                tooltip=f"Datacenter — {row.get('etab_nom', 'Centre de données')}",
-                popup=f"{row.get('etab_nom', 'Centre de données')}<br>{row.get('etab_adresse', '')}",
+            # Calques optionnels, desactives par defaut (pour ne pas surcharger)
+            cluster_agences = folium.FeatureGroup(name="Agences individuelles", show=False)
+            for _, row in togocom.iterrows():
+                folium.CircleMarker(
+                    location=[row["lat"], row["lon"]], radius=4,
+                    color="#1f77b4", fill=True, fill_opacity=0.8,
+                    tooltip=f"Togocom - {row.get('etab_nom', 'Agence')}",
+                ).add_to(cluster_agences)
+            for _, row in moov.iterrows():
+                folium.CircleMarker(
+                    location=[row["lat"], row["lon"]], radius=4,
+                    color="#ff7f0e", fill=True, fill_opacity=0.8,
+                    tooltip=f"Moov - {row.get('etab_nom', 'Agence')}",
+                ).add_to(cluster_agences)
+            cluster_agences.add_to(m)
+
+            for _, row in datacenters.iterrows():
+                folium.Marker(
+                    location=[row["lat"], row["lon"]],
+                    icon=folium.Icon(color="purple", icon="server", prefix="fa"),
+                    tooltip=f"Datacenter — {row.get('etab_nom', 'Centre de données')}",
+                ).add_to(m)
+
+            with open(DATA_PROCESSED / "densite_bounds.json") as f:
+                bounds_densite = json.load(f)
+            folium.raster_layers.ImageOverlay(
+                image=str(DATA_PROCESSED / "densite_population.png"),
+                bounds=[
+                    [bounds_densite["south"], bounds_densite["west"]],
+                    [bounds_densite["north"], bounds_densite["east"]],
+                ],
+                opacity=0.6,
+                name="Densité de population (WorldPop 2020)",
+                show=False,
             ).add_to(m)
 
-        cluster_agences = MarkerCluster(name="Agences").add_to(m)
-        for _, row in togocom.iterrows():
-            folium.CircleMarker(
-                location=[row["lat"], row["lon"]], radius=5,
-                color="#1f77b4", fill=True, fill_opacity=0.8,
-                tooltip=f"Togocom - {row.get('etab_nom', 'Agence')}",
-            ).add_to(cluster_agences)
-        for _, row in moov.iterrows():
-            folium.CircleMarker(
-                location=[row["lat"], row["lon"]], radius=5,
-                color="#ff7f0e", fill=True, fill_opacity=0.8,
-                tooltip=f"Moov - {row.get('etab_nom', 'Agence')}",
-            ).add_to(cluster_agences)
-
-        folium.LayerControl().add_to(m)
-        return m
+            folium.LayerControl().add_to(m)
+            return m
 
     if st.button("🗺️ Afficher la carte", type="primary"):
         with st.spinner("Génération de la carte..."):
@@ -471,8 +518,9 @@ elif page == "Cartographie":
         components.html(carte_html, width=1200, height=600)
     else:
         st.info("Clique sur le bouton ci-dessus pour charger la carte.")
-    st.write("")
+        st.write("")
     st.caption("🟣 Marqueurs violets = centres de données (3 sites recensés)")
+    st.caption("🔥 Fond orange/jaune = densité de population réelle (WorldPop 2020, résolution 100m)")
     st.markdown("**Légende priorité** (basée sur le nombre d'agences pour 100 000 hab.)")
     leg1, leg2, leg3, leg4, leg5 = st.columns(5)
     leg1.markdown("🔴 Très prioritaire")
@@ -529,3 +577,4 @@ st.caption(
     "cellulaire (2G/3G/4G) n'existe pour le Togo. La présence des agences "
     "télécoms et des points mobile money est utilisée comme proxy indirect."
 )
+
