@@ -13,3 +13,24 @@ pour le Togo :
 mobile money est utilisée comme *proxy indirect* de la présence des opérateurs
 sur le territoire, en l'absence de données de couverture radio. Cette limite
 est mentionnée explicitement dans le rapport final.
+
+## Statut
+
+- [x] Création du projet et récupération des données brutes
+- [x] Nettoyage / extraction des coordonnées (lon, lat)
+- [x] Recherche de la donnée démographique (recensement 2022 + WorldPop 100m)
+- [x] Indicateurs de couverture par préfecture/commune/canton
+- [x] Identification des zones blanches (39 préfectures, 372 cantons)
+- [x] Dashboard (Streamlit)
+- [x] Rapport PowerPoint (10 diapositives)
+
+## Corrections notables
+
+- Une faute de frappe dans les données sources (`Tandjoaré` au lieu de
+  `Tandjouaré`) faisait perdre 159 points mobile money de l'agrégation.
+  Corrigée dans `src/load_data.py`.
+
+## Livrables finaux
+
+- `dashboard/app.py` — dashboard Streamlit (voir README pour lancement)
+- `diagnostic_connectivite_togo.pptx` — rapport de synthèse (10 slides)
